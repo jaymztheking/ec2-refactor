@@ -1,16 +1,3 @@
-TABLE_COMM_MESSAGE_BODY:
-  Run: False
-  Environment: "qa"
-  Source:
-    platform: "Postgres"
-    database: "QACC2"
-    schema: "CC2"
-    table: "COMM_MESSAGE_BODY"
-    audit_cols: ["createdate"]
-  Target:
-    table: "COMM_MESSAGE_BODY"
-  Load Type:
-    load_type: "Full Load" # Full, Partial, or Incremental Load
 TEST_TABLE:
   Run: True
   Environment: "dev"
@@ -25,3 +12,4 @@ TEST_TABLE:
     database: "TEST_DB"
     schema: "TEST_SCHEMA"
     table: "TEST_TABLE"
+  Load Type: "Full Load"
