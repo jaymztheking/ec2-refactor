@@ -45,7 +45,7 @@ class Target:
     def get_row_count(self, table: str) -> int:
         pass
 
-    def get_latest_date_in_table(self, table: str, audit_cols: list =None) -> dt.datetime:
+    def get_latest_date_in_table(self, schema: str, table: str, audit_cols: list =None) -> dt.datetime:
         pass
 
 #Implementations of Sources and Targets
@@ -151,6 +151,7 @@ class Postgres(Source):
             self.cursor.close()
             if standalone_run:
                 self.disconnect()
+            return None
         return results
 
 class Snowflake(Target):
@@ -206,6 +207,7 @@ class Snowflake(Target):
 
     def run_script(self, scriptfilepath: str) -> bool:
         standalone_run = False
+        print(scriptfilepath)
         with open(scriptfilepath) as script:
             query = script.read()
         try:
