@@ -31,6 +31,9 @@ def delete_objects_from_s3(s3_folder: str, s3_client, bucket: str) -> bool:
         if objects_to_delete:
             response = s3_client.delete_objects(Bucket=bucket, Delete={"Objects": objects_to_delete})
         return True
+    except KeyError:
+        print('Nothing to delete there')
+        return False 
     except Exception as err:
         print(err)
         return False

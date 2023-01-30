@@ -13,7 +13,10 @@ def create_local_data_file(records: list, file_path: str, file_name: str, delimi
         create_local_csv(records, file_path, file_name, delimiter)
 
 def create_local_panda_csv(records: list, file_path: str, file_name: str, delimiter: str ="\t") -> str:
+    if not os.path.isdir(file_path):
+        os.makedirs(file_path)
     full_path = os.path.join(file_path, file_name)
+    
     data_df = pd.DataFrame(records)
     data_table = pa.Table.from_pandas(data_df)
     write_options = csv.WriteOptions(delimiter=delimiter, include_header=False)
