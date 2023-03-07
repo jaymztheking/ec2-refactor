@@ -24,7 +24,10 @@ def create_local_panda_csv(records: list, file_path: str, file_name: str, delimi
     return full_path
 
 def create_local_csv(records: list, file_path: str, file_name: str, delimiter: str ="\t") -> str:
+    if not os.path.isdir(file_path):
+        os.makedirs(file_path)
     full_path = os.path.join(file_path, file_name)
+    
     with open(full_path, "w+") as local_csv:
         csv_writer = csv.writer(    local_csv, 
                                     delimiter=delimiter,

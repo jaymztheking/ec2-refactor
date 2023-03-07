@@ -1,4 +1,5 @@
 import os
+import json
 import yaml
 import datetime as dt
 from time import perf_counter
@@ -7,7 +8,7 @@ import boto3
 
 from ingestion.db import Source, Target, Postgres, Snowflake
 from ingestion.config import pgdict, sfdict
-from ingestion.aws import delete_objects_from_s3, upload_files_from_disk_to_s3
+from ingestion.aws import delete_objects_from_s3, upload_files_from_disk_to_s3, get_dict_from_parameter_store
 from ingestion.local_files import remove_files_in_local_folder, create_local_data_file
 
 PROJECT_ROOT = os.getcwd() #change to OS path join
@@ -16,29 +17,34 @@ NUM_RECORDS_PER_FETCH = 1
 NUM_LOAD_DATA_PER_ITERATION = 1
 
 def data_load(source: Source, target: Target, ingest_config: dict) -> dict:
+    #unpack dict and declare variables for readability
+    env = ingest_config['Environment']
+    load_type = ingest_config['Load Type'].lower().replace(' ','_')
+    src_db = ingest_config['Source']['database']
     src_schema = ingest_config['Source']['schema']
     src_table = ingest_config['Source']['table']
     src_audit_cols = ingest_config['Source']['audit_cols']
+    tar_db = ingest_config['Target']['database']
     tar_schema = ingest_config['Target']['schema']
     tar_table = ingest_config['Target']['table']
 
     local_folder = os.path.join(    PROJECT_ROOT, 
                                     'data',
-                                    ingest_config['Environment'],
-                                    ingest_config['Source']['database'],
+                                    env,
+                                    src_db,
                                     src_schema,
                                     src_table,
                                 )
-    s3_folder = '/'.join([  ingest_config['Environment'],
-                            ingest_config['Source']['database'],
+    s3_folder = '/'.join([  env,
+                            src_db,
                             src_schema,
                             src_table,
                         ]).upper().replace(' ','_')
     target_script = os.path.join(   PROJECT_ROOT,
                                     'ingestion',
                                     'sql',
-                                    ingest_config['Load Type'].lower().replace(' ','_'),
-                                    ingest_config['Source']['database'],
+                                    load_type,
+                                    src_db,
                                     src_schema,
                                     src_table+'.sql',
                                 )
@@ -47,7 +53,7 @@ def data_load(source: Source, target: Target, ingest_config: dict) -> dict:
     load_count = 0
     start = perf_counter()
     ingestion_stats = {
-                        'db_name': ingest_config['Source']['database'],
+                        'db_name': src_db,
                         'schema_name': src_schema,
                         'table_name': src_table,
                         'started_at': dt.datetime.now()                        
@@ -61,11 +67,11 @@ def data_load(source: Source, target: Target, ingest_config: dict) -> dict:
     remove_files_in_local_folder(local_folder)
 
     #Create Load Query
-    if ingest_config['Load Type'] == 'Full Load':
+    if load_type == 'full_load':
         target.truncate(tar_schema, tar_table)
         query = source.build_full_load_query(src_schema, src_table, src_audit_cols)
-    elif ingest_config['Load Type'] == 'Incremental Load':
-        latest_date = target.get_latest_date_in_table(src_schema, src_table, src_audit_cols)
+    elif load_type == 'incremental_load':
+        latest_date = target.get_latest_date_in_table(tar_schema, tar_table, src_audit_cols)
         query = source.build_incremental_load_query(src_schema, src_table, src_audit_cols, latest_date)
     
     #Send Slack
@@ -88,8 +94,8 @@ def data_load(source: Source, target: Target, ingest_config: dict) -> dict:
                                                     s3_folder=s3_folder, 
                                                     s3_client=s3_client
                                                 )
-                    target.run_script(target_script)
-                    delete_objects_from_s3(s3_folder, s3_client, S3_BUCKET)
+                    target.run_script(target_script, db=tar_db, schema=tar_schema)
+                    #delete_objects_from_s3(s3_folder, s3_client, S3_BUCKET)
                     remove_files_in_local_folder(local_folder)
                     load_count += 1
 
@@ -102,8 +108,8 @@ def data_load(source: Source, target: Target, ingest_config: dict) -> dict:
                                                 s3_folder=s3_folder, 
                                                 s3_client=s3_client
                                             )
-                target.run_script(target_script)
-                delete_objects_from_s3(s3_folder, s3_client, S3_BUCKET)
+                target.run_script(target_script, db=tar_db, schema=tar_schema)
+                #delete_objects_from_s3(s3_folder, s3_client, S3_BUCKET)
                 remove_files_in_local_folder(local_folder)
                 load_count += 1
 
@@ -136,12 +142,30 @@ if __name__ == "__main__":
                     ingestion_stats = dict()
                     print(tbl_conf)
                     if tbl_conf['Run']:
+                        #unpack dict for readability
+                        env = tbl_conf['Environment'].lower()
+                        src_platform = tbl_conf['Source']['platform'].lower()
+                        tgt_platform = tbl_conf['Target']['platform'].lower()
+                        src_db = tbl_conf['Source']['database'].lower()
+                        tgt_db = tbl_conf['Target']['database'].lower()
                         
                         #Get login details from parameter store
-                        #Create source and target objects
-                        source = Postgres(pgdict)
-                        target = Snowflake(sfdict)
+                        src_key = f"/{env}/{src_platform}/{src_db}"
+                        tgt_key = f"/{env}/{tgt_platform}/{tgt_db}"
+                        src_parm = get_dict_from_parameter_store(src_key)
+                        tgt_parm = get_dict_from_parameter_store(tgt_key)
 
+                        #Create source and target objects
+                        if src_platform == 'postgres':
+                            source = Postgres(src_parm)
+                        else:
+                            raise Exception('that platform as not been implemented as a source')
+                        
+                        if tgt_platform == 'snowflake':
+                            target = Snowflake(tgt_parm)
+                        else:
+                            raise Exception('that platform as not been implemented as a target')
+                        
                         #Connect source and target objects
                         source.connect()
                         target.connect()

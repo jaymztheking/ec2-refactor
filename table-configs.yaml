@@ -1,15 +1,13 @@
-TEST_TABLE:
+GRAD_RATE_MASTER:
   Run: True
-  Environment: "dev"
+  Environment: "qa"
   Source:
-    platform: "Postgres"
-    database: "testdb"
-    schema: "testschema"
-    table: "testtable"
-    audit_cols: ["created_date","modified_date"]
+    platform: "Smartsheet"
+    sheet name: "Grad Rate Master"
+    sheet id: "8065621301716868"
   Target:
     platform: "Snowflake"
-    database: "TEST_DB"
-    schema: "TEST_SCHEMA"
-    table: "TEST_TABLE"
+    database: "DATALAKE_QA"
+    schema: "SMARTSHEET_CF01"
+    table: "GRAD_RATE_MASTER"
   Load Type: "Full Load"

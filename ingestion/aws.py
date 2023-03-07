@@ -1,4 +1,5 @@
 import os
+import json
 import boto3
 
 def upload_files_from_disk_to_s3(local_folder: str, bucket: str =None, s3_folder: str =None, s3_client =None) -> bool:
@@ -41,9 +42,9 @@ def delete_objects_from_s3(s3_folder: str, s3_client, bucket: str) -> bool:
 
 def get_dict_from_parameter_store(key: str) -> dict:
     try:
-        ssm_client = boto3.client("ssm", region_name="us-east-1")
+        ssm_client = boto3.Session(profile_name='ec2-refactor').client("ssm", region_name="us-east-1")
         response = ssm_client.get_parameter(Name=key, WithDecryption=True)
-        return response["Parameter"]["Value"]
+        return json.loads(response["Parameter"]["Value"])
     except Exception as err:
         print(err)
         return None

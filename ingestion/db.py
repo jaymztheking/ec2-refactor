@@ -39,7 +39,7 @@ class Target:
     def truncate(self, schema: str, table: str) -> bool:
         pass
 
-    def run_script(self, scriptfilepath: str) -> bool:
+    def run_script(self, scriptfilepath: str, db: str =None, schema: str =None) -> bool:
         pass
 
     def get_row_count(self, table: str) -> int:
@@ -205,7 +205,7 @@ class Snowflake(Target):
             print(err)
             return False
 
-    def run_script(self, scriptfilepath: str) -> bool:
+    def run_script(self, scriptfilepath: str, db: str =None, schema: str =None) -> bool:
         standalone_run = False
         print(scriptfilepath)
         with open(scriptfilepath) as script:
@@ -214,6 +214,10 @@ class Snowflake(Target):
             if self.connection is None:
                 standalone_run = True
                 self.connect()   
+            if db:
+                self.cursor.execute(f"use database {db}")
+            if schema:
+                self.cursor.execute(f"use schema {schema}")
             self.cursor.execute(query)
             if standalone_run:
                 self.disconnect()
